@@ -1,0 +1,18 @@
+services:
+  grafana:
+    environment:
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        export TELEGRAM_BOT_TOKEN="$$(cat /run/secrets/telegram-bot-token)"
+        exec /run.sh
+    volumes:
+      - ./grafana/optional/telegram.yml:/etc/grafana/provisioning/alerting/notifications.yml:ro
+    secrets:
+      - telegram-bot-token
+
+secrets:
+  telegram-bot-token:
+    file: ./secrets/telegram-bot-token

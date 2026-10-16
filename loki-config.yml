@@ -1,0 +1,78 @@
+auth_enabled: false
+
+server:
+  http_listen_address: 0.0.0.0
+  http_listen_port: 3100
+  grpc_listen_address: 0.0.0.0
+  grpc_listen_port: 9095
+  log_level: info
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /var/lib/loki
+  storage:
+    filesystem:
+      chunks_directory: /var/lib/loki/chunks
+      rules_directory: /var/lib/loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /var/lib/loki/tsdb-index
+    cache_location: /var/lib/loki/tsdb-cache
+  filesystem:
+    directory: /var/lib/loki/chunks
+
+compactor:
+  working_directory: /var/lib/loki/compactor
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  retention_delete_worker_count: 150
+  delete_request_store: filesystem
+
+limits_config:
+  retention_period: ${LOKI_RETENTION_PERIOD:8760h}
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  max_query_series: 5000
+  ingestion_rate_mb: 8
+  ingestion_burst_size_mb: 16
+  allow_structured_metadata: true
+
+ingester:
+  chunk_idle_period: 2h
+  max_chunk_age: 4h
+  chunk_target_size: 1048576
+  chunk_retain_period: 30s
+  wal:
+    enabled: true
+    dir: /var/lib/loki/wal
+
+analytics:
+  reporting_enabled: false
+
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /var/lib/loki/rules
+  rule_path: /var/lib/loki/rules-tmp
+  alertmanager_url: ""
+  ring:
+    kvstore:
+      store: inmemory
+  enable_api: true

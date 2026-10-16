@@ -1,0 +1,120 @@
+{
+  "annotations": {"list": []},
+  "description": "Operational health across services that send logs to Loki. Counts represent log records, not users or incidents.",
+  "editable": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Services reporting",
+      "description": "Number of services that sent at least one log record during the selected time range.",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "datasource": {"type": "loki", "uid": "loki-audit"},
+      "targets": [{"refId": "A", "expr": "count(sum by (service) (count_over_time({service=~\"$service\",environment=~\"$environment\",host=~\"$host\",container!~\"iyagi-caddy\"}[$__range])))"}],
+      "fieldConfig": {"defaults": {"noValue": "0", "color": {"mode": "fixedColor", "fixedColor": "green"}}}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Recent log activity",
+      "description": "Log records received during the last five minutes. Zero means collection may have stopped or every selected service is idle.",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "datasource": {"type": "loki", "uid": "loki-audit"},
+      "targets": [{"refId": "A", "expr": "sum(count_over_time({service=~\"$service\",environment=~\"$environment\",host=~\"$host\",container!~\"iyagi-caddy\"}[5m]))"}],
+      "fieldConfig": {"defaults": {"noValue": "0", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Errors in range",
+      "description": "Log records containing error, failed, or failure. Review the Recent errors and warnings panel below.",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "datasource": {"type": "loki", "uid": "loki-audit"},
+      "targets": [{"refId": "A", "expr": "sum(count_over_time({service=~\"$service\",environment=~\"$environment\",host=~\"$host\",container!~\"iyagi-caddy\"}|~\"(?i)error|failed|failure\"[$__range]))"}],
+      "fieldConfig": {"defaults": {"noValue": "0", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}}}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Warnings in range",
+      "description": "Log records containing warn or warning. Warnings may need review but do not always indicate failure.",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "datasource": {"type": "loki", "uid": "loki-audit"},
+      "targets": [{"refId": "A", "expr": "sum(count_over_time({service=~\"$service\",environment=~\"$environment\",host=~\"$host\",container!~\"iyagi-caddy\"}|~\"(?i)warn|warning\"[$__range]))"}],
+      "fieldConfig": {"defaults": {"noValue": "0", "color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "orange", "value": 1}]}}}
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Log records received over time",
+      "description": "Each point is the number of raw log lines received during that interval. High volume alone does not mean an error.",
+      "gridPos": {"h": 9, "w": 16, "x": 0, "y": 4},
+      "datasource": {"type": "loki", "uid": "loki-audit"},
+      "targets": [{"refId": "A", "expr": "sum by (container) (count_over_time({service=~\"$service\",environment=~\"$environment\",host=~\"$host\",container!~\"iyagi-caddy\"}[$__auto]))", "legendFormat": "{{container}}"}],
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}}
+    },
+    {
+      "id": 6,
+      "type": "bargauge",
+      "title": "Log records by source",
+      "description": "Total raw log lines from each container during the selected range. This identifies noisy sources; it is not an incident count.",
+      "gridPos": {"h": 9, "w": 8, "x": 16, "y": 4},
+      "datasource": {"type": "loki", "uid": "loki-audit"},
+      "targets": [{"refId": "A", "expr": "sum by (container) (count_over_time({service=~\"$service\",environment=~\"$environment\",host=~\"$host\",container!~\"iyagi-caddy\"}[$__range]))", "legendFormat": "{{container}}"}]
+    },
+    {
+      "id": 7,
+      "type": "logs",
+      "title": "Recent errors and warnings",
+      "description": "Newest records that contain common error or warning terms. Read these before opening all raw logs.",
+      "gridPos": {"h": 14, "w": 24, "x": 0, "y": 13},
+      "datasource": {"type": "loki", "uid": "loki-audit"},
+      "targets": [{"refId": "A", "expr": "{service=~\"$service\",environment=~\"$environment\",host=~\"$host\",container!~\"iyagi-caddy\"}|~\"(?i)error|failed|failure|warn|warning\"", "maxLines": 500}],
+      "options": {"showTime": true, "showLevel": false, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true}
+    },
+    {
+      "id": 8,
+      "type": "logs",
+      "title": "Latest log received",
+      "description": "The newest record for the selected filters. Its timestamp confirms when Loki last received matching activity.",
+      "gridPos": {"h": 5, "w": 24, "x": 0, "y": 27},
+      "datasource": {"type": "loki", "uid": "loki-audit"},
+      "targets": [{"refId": "A", "expr": "{service=~\"$service\",environment=~\"$environment\",host=~\"$host\",container!~\"iyagi-caddy\"}", "maxLines": 1}],
+      "options": {"showTime": true, "showLevel": false, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": true, "sortOrder": "Descending", "enableLogDetails": false}
+    },
+    {
+      "id": 100,
+      "type": "row",
+      "title": "All raw logs (expand for troubleshooting)",
+      "description": "Raw logs include routine informational records and can be noisy.",
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 32},
+      "collapsed": true,
+      "panels": [
+        {
+          "id": 9,
+          "type": "logs",
+          "title": "All raw logs",
+          "gridPos": {"h": 16, "w": 24, "x": 0, "y": 33},
+          "datasource": {"type": "loki", "uid": "loki-audit"},
+          "targets": [{"refId": "A", "expr": "{service=~\"$service\",environment=~\"$environment\",host=~\"$host\",container!~\"iyagi-caddy\"}|=\"$search\"", "maxLines": 1000}],
+          "options": {"showTime": true, "showLevel": false, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": true, "sortOrder": "Descending", "enableLogDetails": true}
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["logs", "operations"],
+  "templating": {"list": [
+    {"name": "environment", "label": "Environment", "type": "query", "datasource": {"type": "loki", "uid": "loki-audit"}, "query": "label_values(environment)", "includeAll": true, "allValue": ".+", "refresh": 1, "current": {"text": "All", "value": "$__all"}},
+    {"name": "service", "label": "Service", "type": "query", "datasource": {"type": "loki", "uid": "loki-audit"}, "query": "label_values({environment=~\"$environment\"},service)", "includeAll": true, "allValue": ".+", "refresh": 1, "current": {"text": "All", "value": "$__all"}},
+    {"name": "host", "label": "Server", "type": "query", "datasource": {"type": "loki", "uid": "loki-audit"}, "query": "label_values({environment=~\"$environment\",service=~\"$service\"},host)", "includeAll": true, "allValue": ".+", "refresh": 1, "current": {"text": "All", "value": "$__all"}},
+    {"name": "search", "label": "Raw logs contain", "type": "textbox", "query": "", "current": {"text": "", "value": ""}}
+  ]},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {"refresh_intervals": ["10s", "30s", "1m", "5m"]},
+  "timezone": "browser",
+  "title": "Log Fleet Overview",
+  "uid": "log-fleet-overview",
+  "version": 3
+}

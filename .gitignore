@@ -1,0 +1,5 @@
+.env
+secrets/
+loki-data/
+grafana-data/
+generated/

@@ -1,0 +1,742 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Plain-language LLDAP administration and login audit.",
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Audit system",
+      "description": "Healthy means audit heartbeats reached Loki during the last five minutes.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-audit"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({service=\"lldap\",container=~\"iyagi-(audit-interceptor|lldap-admin-audit-proxy)\",environment=~\"$environment\",host=~\"$host\",event_type=\"audit.heartbeat\"}[5m]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No heartbeat",
+          "mappings": [
+            {
+              "type": "range",
+              "options": {
+                "from": 1,
+                "to": 100000,
+                "result": {
+                  "text": "Healthy",
+                  "color": "green",
+                  "index": 0
+                }
+              }
+            },
+            {
+              "type": "range",
+              "options": {
+                "from": 0,
+                "to": 1,
+                "result": {
+                  "text": "No heartbeat",
+                  "color": "red",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Changes",
+      "description": "Successful LLDAP administration changes in the selected time range.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-audit"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({service=\"lldap\",container=~\"iyagi-(audit-interceptor|lldap-admin-audit-proxy)\",environment=~\"$environment\",host=~\"$host\",event_type=~\"admin\\\\..+\"}|json|result_status=\"success\"[$__range]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "fixedColor",
+            "fixedColor": "green"
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Failed changes",
+      "description": "Administration requests rejected by LLDAP in the selected time range.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-audit"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({service=\"lldap\",container=~\"iyagi-(audit-interceptor|lldap-admin-audit-proxy)\",environment=~\"$environment\",host=~\"$host\",event_type=~\"admin\\\\..+\"}|json|result_status=\"error\"[$__range]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Failed logins",
+      "description": "Rejected login attempts in the selected time range.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-audit"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({service=\"lldap\",container=~\"iyagi-(audit-interceptor|lldap-admin-audit-proxy)\",environment=~\"$environment\",host=~\"$host\",event_type=\"auth.login.failure\"}[$__range]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 6
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "type": "logs",
+      "title": "What happened?",
+      "description": "Each line states who performed the action, what was affected, the client IP address, and whether it succeeded. Newest activity appears first.",
+      "gridPos": {
+        "h": 16,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-audit"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service=\"lldap\",container=~\"iyagi-(audit-interceptor|lldap-admin-audit-proxy)\",environment=~\"$environment\",host=~\"$host\",event_type=~\"admin\\\\..+\"}|json|action_summary=~\"$contains\"|line_format \"{{if and (eq .operation \\\"CreateGroup\\\") (eq .target_id \\\"\\\")}}{{.actor_user_id}} created group {{.request_variables_group_displayName}}{{else if and (eq .operation \\\"DeleteUserQuery\\\") (eq .target_id \\\"\\\")}}{{.actor_user_id}} deleted user {{.request_variables_user}}{{else}}{{.action_summary}}{{end}} from {{.actor_ip}}  [{{.result_status}}]{{if .change_summary}}  Changes: {{.change_summary}}{{end}}\"",
+          "maxLines": 500
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none",
+        "enableLogDetails": false,
+        "showLevel": false
+      }
+    },
+    {
+      "id": 6,
+      "type": "logs",
+      "title": "Group membership changes",
+      "description": "Shows the administrator, user, group, and client IP in one sentence. Example: admin removed ahmad from service_admin-panel from 203.0.113.24.",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-audit"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service=\"lldap\",container=~\"iyagi-(audit-interceptor|lldap-admin-audit-proxy)\",environment=~\"$environment\",host=~\"$host\",event_type=~\"admin.group.member.(add|remove)\"}|json|action_summary!=\"\"|line_format \"{{.action_summary}} from {{.actor_ip}}  [{{.result_status}}]\"",
+          "maxLines": 300
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none",
+        "enableLogDetails": false,
+        "showLevel": false
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Administration activity over time",
+      "description": "Use this chart to spot bursts of changes. Select a time area to narrow the dashboard.",
+      "gridPos": {
+        "h": 8,
+        "w": 16,
+        "x": 0,
+        "y": 30
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-audit"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (event_type)(count_over_time({service=\"lldap\",container=~\"iyagi-(audit-interceptor|lldap-admin-audit-proxy)\",environment=~\"$environment\",host=~\"$host\",event_type=~\"admin\\\\..+\"}[$__auto]))",
+          "legendFormat": "{{event_type}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "bargauge",
+      "title": "Administrators by number of actions",
+      "description": "Administrators with the most recorded changes in the selected time range.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 30
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-audit"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10,sum by(actor_user_id)(count_over_time({service=\"lldap\",container=~\"iyagi-(audit-interceptor|lldap-admin-audit-proxy)\",environment=~\"$environment\",host=~\"$host\",event_type=~\"admin\\\\..+\"}|json|actor_user_id!=\"\"[$__range])))",
+          "legendFormat": "{{actor_user_id}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "logs",
+      "title": "Login activity",
+      "description": "Successful and failed login attempts. Repeated failures for one username can indicate a password attack.",
+      "gridPos": {
+        "h": 12,
+        "w": 16,
+        "x": 0,
+        "y": 38
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-audit"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service=\"lldap\",container=~\"iyagi-(audit-interceptor|lldap-admin-audit-proxy)\",environment=~\"$environment\",host=~\"$host\",event_type=~\"auth.login.(success|failure)\"}|json|line_format \"{{.actor_user_id}}: {{if eq .result_status \\\"success\\\"}}login succeeded{{else}}login failed{{end}}\"",
+          "maxLines": 500
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none",
+        "enableLogDetails": false,
+        "showLevel": false
+      }
+    },
+    {
+      "id": 10,
+      "type": "bargauge",
+      "title": "Usernames with failed logins",
+      "gridPos": {
+        "h": 12,
+        "w": 8,
+        "x": 16,
+        "y": 38
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-audit"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10,sum by(actor_user_id)(count_over_time({service=\"lldap\",container=~\"iyagi-(audit-interceptor|lldap-admin-audit-proxy)\",environment=~\"$environment\",host=~\"$host\",event_type=\"auth.login.failure\"}|json|actor_user_id!=\"\"[$__range])))",
+          "legendFormat": "{{actor_user_id}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Activity details",
+      "description": "Client IP is the public address seen by Nginx. Browser/device is the software description sent by the client.",
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki-audit"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service=\"lldap\",container=~\"iyagi-(audit-interceptor|lldap-admin-audit-proxy)\",environment=~\"$environment\",host=~\"$host\",event_type=~\"admin\\\\..+\"}|json|action_summary!=\"\"",
+          "maxLines": 500
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": false
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Line": true,
+              "labels": true,
+              "id": true,
+              "tsNs": true,
+              "service": true,
+              "actor": true,
+              "target": true,
+              "request": true,
+              "request_headers": true,
+              "before": true,
+              "after": true,
+              "diff": true,
+              "result": true,
+              "changed_fields": true,
+              "operation": true,
+              "target_kind": true,
+              "target_id": true,
+              "target_secondary_id": true,
+              "target_secondary_name": true,
+              "actor_user_id": true,
+              "actor_verified": true,
+              "event_id": true,
+              "result_http_status": true,
+              "result_duration_ms": true,
+              "event_type": true,
+              "ts": true
+            },
+            "indexByName": {
+              "Time": 0,
+              "action_summary": 1,
+              "target_email": 2,
+              "actor_ip": 3,
+              "result_status": 4,
+              "change_summary": 5,
+              "actor_user_agent": 6
+            },
+            "renameByName": {
+              "action_summary": "Activity",
+              "target_email": "Affected user email",
+              "actor_ip": "Client IP",
+              "result_status": "Result",
+              "change_summary": "Changed values",
+              "actor_user_agent": "Browser / device"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Result"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "success": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "error": {
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Activity"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 400
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Browser / device"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 300
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "md",
+        "sortBy": [
+          {
+            "displayName": "Time",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Technical evidence (expand only during an investigation)",
+      "description": "Verified actor means LLDAP signed the administrator identity. Event ID identifies one log record. HTTP status and duration describe request processing.",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 62
+      },
+      "collapsed": true,
+      "panels": [
+        {
+          "id": 12,
+          "type": "table",
+          "title": "Technical event details",
+          "gridPos": {
+            "h": 10,
+            "w": 24,
+            "x": 0,
+            "y": 63
+          },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-audit"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "{service=\"lldap\",container=~\"iyagi-(audit-interceptor|lldap-admin-audit-proxy)\",environment=~\"$environment\",host=~\"$host\",event_type=~\"admin\\\\..+\"}|json|action_summary!=\"\"",
+              "maxLines": 500
+            }
+          ],
+          "transformations": [
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "Line",
+                "format": "json",
+                "replace": false
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Line": true,
+                  "labels": true,
+                  "id": true,
+                  "tsNs": true,
+                  "service": true,
+                  "actor": true,
+                  "target": true,
+                  "request": true,
+                  "request_headers": true,
+                  "before": true,
+                  "after": true,
+                  "diff": true,
+                  "result": true,
+                  "changed_fields": true,
+                  "change_summary": true,
+                  "operation": true,
+                  "target_kind": true,
+                  "target_id": true,
+                  "target_secondary_id": true,
+                  "target_secondary_name": true,
+                  "actor_ip": true,
+                  "actor_user_agent": true,
+                  "result_status": true,
+                  "event_type": true,
+                  "ts": true
+                },
+                "indexByName": {
+                  "Time": 0,
+                  "action_summary": 1,
+                  "actor_verified": 2,
+                  "result_http_status": 3,
+                  "result_duration_ms": 4,
+                  "event_id": 5
+                },
+                "renameByName": {
+                  "action_summary": "Activity",
+                  "actor_verified": "Verified actor",
+                  "result_http_status": "HTTP status",
+                  "result_duration_ms": "Duration (ms)",
+                  "event_id": "Event ID"
+                }
+              }
+            }
+          ],
+          "options": {
+            "showHeader": true,
+            "cellHeight": "sm",
+            "sortBy": [
+              {
+                "displayName": "Time",
+                "desc": true
+              }
+            ]
+          }
+        },
+        {
+          "id": 13,
+          "type": "logs",
+          "title": "Raw audit records",
+          "description": "Full machine-readable evidence, including request variables and before/after data.",
+          "gridPos": {
+            "h": 14,
+            "w": 24,
+            "x": 0,
+            "y": 73
+          },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki-audit"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "{service=\"lldap\",container=~\"iyagi-(audit-interceptor|lldap-admin-audit-proxy)\",environment=~\"$environment\",host=~\"$host\",event_type=~\"admin\\\\..+\"}|json",
+              "maxLines": 500
+            }
+          ],
+          "options": {
+            "showTime": true,
+            "showLabels": false,
+            "showCommonLabels": false,
+            "wrapLogMessage": true,
+            "prettifyLogMessage": true,
+            "sortOrder": "Descending",
+            "dedupStrategy": "none",
+            "enableLogDetails": true,
+            "showLevel": false
+          }
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": [
+    "lldap",
+    "audit",
+    "security"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "label": "Environment",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki-audit"
+        },
+        "query": "label_values({service=\"lldap\"},environment)",
+        "includeAll": true,
+        "allValue": ".*",
+        "refresh": 1,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "host",
+        "label": "Server",
+        "type": "query",
+        "datasource": {
+          "type": "loki",
+          "uid": "loki-audit"
+        },
+        "query": "label_values({service=\"lldap\",environment=~\"$environment\"},host)",
+        "includeAll": true,
+        "allValue": ".*",
+        "refresh": 1,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "contains",
+        "label": "Activity contains",
+        "type": "textbox",
+        "query": ".*",
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "10s",
+      "30s",
+      "1m",
+      "5m"
+    ]
+  },
+  "timezone": "browser",
+  "title": "LLDAP Audit",
+  "uid": "lldap-audit",
+  "version": 5
+}

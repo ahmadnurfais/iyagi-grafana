@@ -1,0 +1,141 @@
+apiVersion: 1
+
+deleteRules:
+  - orgId: 1
+    uid: lldap-out-of-hours
+
+groups:
+  - orgId: 1
+    name: lldap-security
+    folder: LLDAP Audit
+    interval: 1m
+    rules:
+      - uid: lldap-failed-logins
+        title: LLDAP failed-login burst
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: loki-audit
+            model:
+              expr: 'sum by (environment, host) (count_over_time({service="lldap", container=~"iyagi-(audit-interceptor|lldap-admin-audit-proxy)", event_type="auth.login.failure"} [5m]))'
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model: {type: reduce, refId: B, expression: A, reducer: last}
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions: [{evaluator: {type: gt, params: [5]}, operator: {type: and}, query: {params: [B]}, reducer: {type: last, params: []}, type: query}]
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations: {summary: More than five failed LLDAP logins in five minutes}
+        labels: {severity: warning, service: lldap}
+
+      - uid: lldap-admin-failure
+        title: LLDAP admin action failed
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: loki-audit
+            model:
+              expr: 'sum by (environment, host) (count_over_time({service="lldap", container=~"iyagi-(audit-interceptor|lldap-admin-audit-proxy)", event_type=~"admin\\..+"} | json | result_status="error" [5m]))'
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model: {type: reduce, refId: B, expression: A, reducer: last}
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions: [{evaluator: {type: gt, params: [0]}, operator: {type: and}, query: {params: [B]}, reducer: {type: last, params: []}, type: query}]
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations: {summary: An LLDAP administrative action failed}
+        labels: {severity: warning, service: lldap}
+
+      - uid: lldap-unknown-mutation
+        title: Unknown LLDAP mutation
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: loki-audit
+            model:
+              expr: 'sum by (environment, host) (count_over_time({service="lldap", container=~"iyagi-(audit-interceptor|lldap-admin-audit-proxy)", event_type="admin.unknown"} [5m]))'
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model: {type: reduce, refId: B, expression: A, reducer: last}
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions: [{evaluator: {type: gt, params: [0]}, operator: {type: and}, query: {params: [B]}, reducer: {type: last, params: []}, type: query}]
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations: {summary: The gateway observed an unclassified GraphQL mutation}
+        labels: {severity: warning, service: lldap}
+
+      - uid: lldap-audit-error
+        title: LLDAP audit pipeline error
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: loki-audit
+            model:
+              expr: 'sum by (environment, host) (count_over_time({service="lldap", container=~"iyagi-(audit-interceptor|lldap-admin-audit-proxy)", event_type="audit.error"} [5m]))'
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model: {type: reduce, refId: B, expression: A, reducer: last}
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions: [{evaluator: {type: gt, params: [0]}, operator: {type: and}, query: {params: [B]}, reducer: {type: last, params: []}, type: query}]
+        noDataState: OK
+        execErrState: Alerting
+        for: 0s
+        annotations: {summary: The LLDAP audit gateway emitted an error}
+        labels: {severity: critical, service: lldap}
+
+      - uid: lldap-heartbeat-missing
+        title: LLDAP audit heartbeat missing
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: loki-audit
+            model:
+              expr: 'absent_over_time({service="lldap", container=~"iyagi-(audit-interceptor|lldap-admin-audit-proxy)", environment="production", host="lldap", event_type="audit.heartbeat"} [5m])'
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model: {type: reduce, refId: B, expression: A, reducer: last}
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              expression: B
+              conditions: [{evaluator: {type: gt, params: [0]}, operator: {type: and}, query: {params: [B]}, reducer: {type: last, params: []}, type: query}]
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 0s
+        annotations: {summary: No LLDAP audit heartbeat reached Loki for at least five minutes}
+        labels: {severity: critical, service: lldap}
